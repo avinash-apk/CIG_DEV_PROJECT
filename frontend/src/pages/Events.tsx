@@ -1,33 +1,97 @@
-import React from 'react';
-import { Calendar, Plus } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
+import { Calendar, MapPin, ChevronRight, Plus } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import api from '../services/api';
+import { useAuth } from '../context/AuthContext';
+
+interface Event {
+  id: number;
+  name: string;
+  description: string;
+  date: string;
+  category: string;
+}
 
 const Events: React.FC = () => {
-  return (
-    <div className="min-h-screen bg-black text-white p-6">
-      <div className="max-w-7xl mx-auto">
-        <div className="flex justify-between items-center mb-10">
-          <div>
-            <h1 className="text-4xl font-bold mb-2">Events</h1>
-            <p className="text-gray-400">Manage and explore upcoming events</p>
-          </div>
-          <button className="flex items-center space-x-2 bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-3 rounded-xl font-semibold transition-all shadow-lg shadow-indigo-500/20">
-            <Plus size={20} />
-            <span>Create Event</span>
-          </button>
-        </div>
+  const [events, setEvents] = useState<Event[]>([]);
+  const [loading, setLoading] = useState(true);
+  const { user } = useAuth();
 
-        <div className="bg-gray-900/50 border border-gray-800 rounded-3xl p-12 text-center">
-          <div className="bg-gray-800 w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-6">
-            <Calendar size={40} className="text-indigo-500" />
-          </div>
-          <h2 className="text-2xl font-bold mb-3">No events yet</h2>
-          <p className="text-gray-400 max-w-md mx-auto mb-8">
-            Get started by creating your first event. You'll be able to manage albums and photos once an event is active.
-          </p>
-          <button className="text-indigo-500 hover:text-indigo-400 font-semibold underline decoration-2 underline-offset-4">
-            View past events
-          </button>
+  useEffect(() => {
+    const fetchEvents = async () => {
+      try {
+        const response = await api.get('/events');
+        setEvents(response.data);
+      } catch (error) {
+        console.error('Error fetching events:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchEvents();
+  }, []);
+
+  if (loading) {
+    return (
+      <div className="flex justify-center items-center h-64">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-8">
+      <div className="flex justify-between items-center">
+        <div>
+          <h1 className="text-4xl font-bold">Events</h1>
+          <p className="text-gray-400 mt-2">Discover and manage all club events</p>
         </div>
+        {(user?.role === 'ADMIN' || user?.role === 'PHOTOGRAPHER') && (
+          <button className="bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded-lg flex items-center gap-2 font-semibold">
+            <Plus size={20} /> Create Event
+          </button>
+        )}
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        {events.length > 0 ? (
+          events.map((event) => (
+            <Link 
+              key={event.id} 
+              to={`/events/${event.id}`}
+              className="group bg-gray-800 border border-gray-700 rounded-xl overflow-hidden hover:border-blue-500 transition-all duration-300 shadow-lg"
+            >
+              <div className="h-48 bg-gray-700 relative overflow-hidden">
+                <div className="absolute inset-0 bg-gradient-to-t from-gray-900 to-transparent opacity-60"></div>
+                <div className="absolute bottom-4 left-4">
+                  <span className="bg-blue-600 text-xs font-bold px-2 py-1 rounded uppercase tracking-wider">
+                    {event.category || 'General'}
+                  </span>
+                </div>
+              </div>
+              <div className="p-6 space-y-4">
+                <h3 className="text-xl font-bold group-hover:text-blue-400 transition-colors">{event.name}</h3>
+                <p className="text-gray-400 text-sm line-clamp-2">{event.description}</p>
+                <div className="flex items-center gap-4 text-xs text-gray-500">
+                  <div className="flex items-center gap-1">
+                    <Calendar size={14} />
+                    <span>{event.date ? new Date(event.date).toLocaleDateString() : 'TBA'}</span>
+                  </div>
+                </div>
+                <div className="pt-2 flex justify-end">
+                  <span className="text-blue-500 flex items-center gap-1 text-sm font-medium group-hover:translate-x-1 transition-transform">
+                    View Albums <ChevronRight size={16} />
+                  </span>
+                </div>
+              </div>
+            </Link>
+          ))
+        ) : (
+          <div className="col-span-full py-20 text-center bg-gray-800/50 rounded-2xl border border-dashed border-gray-700">
+            <p className="text-gray-400">No events found. Start by creating one!</p>
+          </div>
+        )}
       </div>
     </div>
   );

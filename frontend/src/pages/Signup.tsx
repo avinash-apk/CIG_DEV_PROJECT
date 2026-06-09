@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { UserPlus, Mail, Lock, UserCircle } from 'lucide-react';
 import { useNavigate, Link } from 'react-router-dom';
+import api from '../services/api';
 
 const Signup: React.FC = () => {
   const { login } = useAuth();
@@ -10,21 +11,22 @@ const Signup: React.FC = () => {
   const [password, setPassword] = useState('');
   const [role, setRole] = useState('VIEWER');
   const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+    setLoading(true);
     
     try {
-      // Mocking signup for now
-      if (email && password) {
-        login('mock-token', { id: 1, email, role });
-        navigate('/');
-      } else {
-        setError('Please fill in all fields');
-      }
-    } catch (err) {
-      setError('Registration failed');
+      const response = await api.post('/auth/signup', { email, password, role });
+      const { token, user } = response.data;
+      login(token, user);
+      navigate('/');
+    } catch (err: any) {
+      setError(err.response?.data?.message || 'Registration failed');
+    } finally {
+      setLoading(false);
     }
   };
 
