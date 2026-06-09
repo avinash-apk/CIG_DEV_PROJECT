@@ -32,6 +32,10 @@ app.get('/', (req, res) => {
   res.send('Event & Media Management Platform API');
 });
 
-httpServer.listen(port, () => {
-  console.log(`Server running on port ${port}`);
-});
+if (process.env.NODE_ENV !== 'production') {
+  httpServer.listen(port, () => {
+    console.log(`Server running on port ${port}`);
+  });
+}
+
+export default app;
