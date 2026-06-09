@@ -1,5 +1,5 @@
-import React, { useEffect, useState } from 'react';
-import { Calendar, MapPin, ChevronRight, Plus } from 'lucide-react';
+import React, { useEffect, useState, useMemo } from 'react';
+import { Calendar, ChevronRight, Plus, SortAsc } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import api from '../services/api';
 import { useAuth } from '../context/AuthContext';
@@ -15,6 +15,7 @@ interface Event {
 const Events: React.FC = () => {
   const [events, setEvents] = useState<Event[]>([]);
   const [loading, setLoading] = useState(true);
+  const [sortBy, setSortBy] = useState<'name' | 'date' | 'category'>('date');
   const { user } = useAuth();
 
   useEffect(() => {
@@ -32,6 +33,14 @@ const Events: React.FC = () => {
     fetchEvents();
   }, []);
 
+  const sortedEvents = useMemo(() => {
+    return [...events].sort((a, b) => {
+      if (sortBy === 'name') return a.name.localeCompare(b.name);
+      if (sortBy === 'category') return (a.category || '').localeCompare(b.category || '');
+      return new Date(b.date).getTime() - new Date(a.date).getTime();
+    });
+  }, [events, sortBy]);
+
   if (loading) {
     return (
       <div className="flex justify-center items-center h-64">
@@ -42,21 +51,35 @@ const Events: React.FC = () => {
 
   return (
     <div className="space-y-8">
-      <div className="flex justify-between items-center">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
           <h1 className="text-4xl font-bold">Events</h1>
           <p className="text-gray-400 mt-2">Discover and manage all club events</p>
         </div>
-        {(user?.role === 'ADMIN' || user?.role === 'PHOTOGRAPHER') && (
-          <button className="bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded-lg flex items-center gap-2 font-semibold">
-            <Plus size={20} /> Create Event
-          </button>
-        )}
+        <div className="flex items-center gap-4 w-full md:w-auto">
+          <div className="flex items-center gap-2 bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 w-full md:w-auto">
+            <SortAsc size={18} className="text-gray-400" />
+            <select
+              value={sortBy}
+              onChange={(e) => setSortBy(e.target.value as 'name' | 'date' | 'category')}
+              className="bg-transparent border-none text-white focus:outline-none w-full appearance-none"
+            >
+              <option value="date" className="bg-gray-800">Sort by Date</option>
+              <option value="name" className="bg-gray-800">Sort by Name</option>
+              <option value="category" className="bg-gray-800">Sort by Category</option>
+            </select>
+          </div>
+          {(user?.role === 'ADMIN' || user?.role === 'PHOTOGRAPHER') && (
+            <button className="bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded-lg flex items-center justify-center gap-2 font-semibold w-full md:w-auto whitespace-nowrap">
+              <Plus size={20} /> Create Event
+            </button>
+          )}
+        </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {events.length > 0 ? (
-          events.map((event) => (
+        {sortedEvents.length > 0 ? (
+          sortedEvents.map((event) => (
             <Link 
               key={event.id} 
               to={`/events/${event.id}`}
