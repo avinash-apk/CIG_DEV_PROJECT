@@ -1,9 +1,10 @@
 import { Response } from 'express';
 import { db } from '../db';
-import { media, albums } from '../db/schema';
+import { media, albums, tags, mediaTags } from '../db/schema';
 import { eq } from 'drizzle-orm';
 import { getPresignedUploadUrl } from '../services/s3';
 import { AuthRequest } from '../middleware/auth';
+import { detectLabels } from '../services/rekognition';
 
 export const getUploadUrl = async (req: AuthRequest, res: Response) => {
   try {
@@ -29,6 +30,27 @@ export const registerMedia = async (req: AuthRequest, res: Response) => {
       s3Key,
       type: type || 'PHOTO',
     }).returning();
+
+    const mediaId = newMedia[0].id;
+
+    if (type === 'PHOTO' || !type) {
+      const labelsData = await detectLabels(process.env.S3_BUCKET_NAME!, s3Key);
+      if (labelsData.Labels) {
+        for (const label of labelsData.Labels) {
+          if (label.Name) {
+            let tagRecord = await db.select().from(tags).where(eq(tags.name, label.Name));
+            let tagId;
+            if (tagRecord.length === 0) {
+              const newTag = await db.insert(tags).values({ name: label.Name }).returning();
+              tagId = newTag[0].id;
+            } else {
+              tagId = tagRecord[0].id;
+            }
+            await db.insert(mediaTags).values({ mediaId, tagId }).onConflictDoNothing();
+          }
+        }
+      }
+    }
     
     res.status(201).json(newMedia[0]);
   } catch (error) {
