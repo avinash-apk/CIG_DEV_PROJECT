@@ -4,7 +4,7 @@ import { media, albums, tags, mediaTags } from '../db/schema';
 import { eq } from 'drizzle-orm';
 import { getPresignedUploadUrl } from '../services/s3';
 import { AuthRequest } from '../middleware/auth';
-import { detectLabels } from '../services/rekognition';
+import { detectLabels, indexFace } from '../services/rekognition';
 
 export const getUploadUrl = async (req: AuthRequest, res: Response) => {
   try {
@@ -34,6 +34,7 @@ export const registerMedia = async (req: AuthRequest, res: Response) => {
     const mediaId = newMedia[0].id;
 
     if (type === 'PHOTO' || !type) {
+      // 1. Detect Labels
       const labelsData = await detectLabels(process.env.S3_BUCKET_NAME!, s3Key);
       if (labelsData.Labels) {
         for (const label of labelsData.Labels) {
@@ -49,6 +50,14 @@ export const registerMedia = async (req: AuthRequest, res: Response) => {
             await db.insert(mediaTags).values({ mediaId, tagId }).onConflictDoNothing();
           }
         }
+      }
+
+      // 2. Index Faces for Facial Recognition
+      try {
+        await indexFace(process.env.S3_BUCKET_NAME!, s3Key, mediaId.toString());
+      } catch (faceError) {
+        console.error('Error indexing faces:', faceError);
+        // Don't fail the whole request if indexing fails
       }
     }
     

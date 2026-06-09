@@ -7,6 +7,8 @@ import eventRoutes from './routes/eventRoutes';
 import authRoutes from './routes/authRoutes';
 import mediaRoutes from './routes/mediaRoutes';
 import downloadRoutes from './routes/downloadRoutes';
+import userRoutes from './routes/userRoutes';
+import socialRoutes from './routes/socialRoutes';
 
 dotenv.config();
 
@@ -23,6 +25,8 @@ app.use('/api/auth', authRoutes);
 app.use('/api/events', eventRoutes);
 app.use('/api/media', mediaRoutes);
 app.use('/api/download', downloadRoutes);
+app.use('/api/users', userRoutes);
+app.use('/api/social', socialRoutes);
 
 app.get('/', (req, res) => {
   res.send('Event & Media Management Platform API');
