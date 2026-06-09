@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { ArrowLeft, Upload, Grid, List as ListIcon, X } from 'lucide-react';
+import { ArrowLeft, Upload } from 'lucide-react';
 import api from '../services/api';
 import MediaCard from '../components/MediaCard';
 import { useAuth } from '../context/AuthContext';

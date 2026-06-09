@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Camera, Search, User, Grid, RefreshCcw } from 'lucide-react';
+import { Camera, Search, User, RefreshCcw } from 'lucide-react';
 import api from '../services/api';
 import MediaCard from '../components/MediaCard';
 import axios from 'axios';

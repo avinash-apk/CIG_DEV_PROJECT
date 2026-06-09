@@ -11,13 +11,10 @@ const Signup: React.FC = () => {
   const [password, setPassword] = useState('');
   const [role, setRole] = useState('VIEWER');
   const [error, setError] = useState('');
-  const [loading, setLoading] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
-    setLoading(true);
-    
     try {
       const response = await api.post('/auth/signup', { email, password, role });
       const { token, user } = response.data;
@@ -25,8 +22,6 @@ const Signup: React.FC = () => {
       navigate('/');
     } catch (err: any) {
       setError(err.response?.data?.message || 'Registration failed');
-    } finally {
-      setLoading(false);
     }
   };
 
