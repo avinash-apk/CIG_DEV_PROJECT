@@ -1,90 +1,109 @@
-import React from 'react';
-import { useParams } from 'react-router-dom';
-import { MapPin, Calendar, Users, Image as ImageIcon } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
+import { useParams, Link } from 'react-router-dom';
+import { Folder, ArrowLeft, Plus, Clock, Tag } from 'lucide-react';
+import api from '../services/api';
+import { useAuth } from '../context/AuthContext';
+
+interface Event {
+  id: number;
+  name: string;
+  description: string;
+  date: string;
+  category: string;
+}
+
+interface Album {
+  id: number;
+  name: string;
+  visibility: string;
+}
 
 const EventDetail: React.FC = () => {
   const { id } = useParams<{ id: string }>();
+  const [event, setEvent] = useState<Event | null>(null);
+  const [albums, setAlbums] = useState<Album[]>([]);
+  const [loading, setLoading] = useState(true);
+  const { user } = useAuth();
+
+  useEffect(() => {
+    const fetchEventData = async () => {
+      try {
+        const [eventRes, albumsRes] = await Promise.all([
+          api.get(`/events/${id}`),
+          api.get(`/events/${id}/albums`)
+        ]);
+        setEvent(eventRes.data);
+        setAlbums(albumsRes.data);
+      } catch (error) {
+        console.error('Error fetching event data:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchEventData();
+  }, [id]);
+
+  if (loading) return <div className="text-center py-20">Loading...</div>;
+  if (!event) return <div className="text-center py-20 text-red-500">Event not found</div>;
 
   return (
-    <div className="min-h-screen bg-black text-white p-6">
-      <div className="max-w-7xl mx-auto">
-        <div className="bg-gray-900 border border-gray-800 rounded-3xl overflow-hidden mb-10">
-          <div className="h-64 bg-gradient-to-r from-indigo-900 to-purple-900 relative">
-            <div className="absolute inset-0 bg-black/40" />
-            <div className="absolute bottom-8 left-8">
-              <h1 className="text-5xl font-extrabold mb-4">Event Name Placeholder #{id}</h1>
-              <div className="flex flex-wrap gap-6 text-gray-200">
-                <div className="flex items-center gap-2">
-                  <Calendar size={20} className="text-indigo-400" />
-                  <span>October 24, 2023</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <MapPin size={20} className="text-indigo-400" />
-                  <span>Downtown Club, NYC</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Users size={20} className="text-indigo-400" />
-                  <span>250+ Attendees</span>
-                </div>
-              </div>
-            </div>
-          </div>
-          
-          <div className="p-8 flex gap-8 border-t border-gray-800">
-            <button className="bg-indigo-600 hover:bg-indigo-700 text-white px-8 py-3 rounded-xl font-bold transition-all">
-              Join Event
-            </button>
-            <button className="bg-gray-800 hover:bg-gray-700 text-white px-8 py-3 rounded-xl font-bold transition-all">
-              View Albums
-            </button>
-          </div>
-        </div>
+    <div className="space-y-8">
+      <Link to="/events" className="flex items-center gap-2 text-gray-400 hover:text-white transition-colors">
+        <ArrowLeft size={20} /> Back to Events
+      </Link>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-          <div className="md:col-span-2 space-y-8">
-            <section className="bg-gray-900 p-8 rounded-3xl border border-gray-800">
-              <h2 className="text-2xl font-bold mb-4">About the Event</h2>
-              <p className="text-gray-400 leading-relaxed">
-                This is a placeholder for the event description. Soon, you'll be able to see full details about the event, including the schedule, special guests, and more.
-              </p>
-            </section>
-            
-            <section>
-              <div className="flex justify-between items-center mb-6">
-                <h2 className="text-2xl font-bold">Event Albums</h2>
-                <button className="text-indigo-500 hover:text-indigo-400 font-semibold">View All</button>
-              </div>
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
-                {[1, 2, 3].map((i) => (
-                  <div key={i} className="group cursor-pointer">
-                    <div className="aspect-[4/3] bg-gray-800 rounded-2xl mb-3 flex items-center justify-center border border-gray-700 group-hover:border-indigo-500 transition-all overflow-hidden relative">
-                      <ImageIcon size={32} className="text-gray-600 group-hover:text-indigo-500 transition-all" />
-                      <div className="absolute inset-0 bg-indigo-500/0 group-hover:bg-indigo-500/10 transition-all" />
-                    </div>
-                    <h3 className="font-semibold text-gray-200 group-hover:text-white">Main Album {i}</h3>
-                    <p className="text-sm text-gray-500">42 Photos</p>
-                  </div>
-                ))}
-              </div>
-            </section>
-          </div>
-          
-          <aside className="space-y-8">
-            <div className="bg-gray-900 p-8 rounded-3xl border border-gray-800">
-              <h2 className="text-xl font-bold mb-4">Photographers</h2>
-              <div className="space-y-4">
-                {[1, 2].map((i) => (
-                  <div key={i} className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-full bg-gray-800 border border-gray-700" />
-                    <div>
-                      <p className="font-medium">Pro Shooter {i}</p>
-                      <p className="text-xs text-gray-500">Professional</p>
-                    </div>
-                  </div>
-                ))}
-              </div>
+      <div className="bg-gray-800 border border-gray-700 rounded-2xl p-8 shadow-xl">
+        <div className="flex flex-col md:flex-row justify-between items-start gap-6">
+          <div className="space-y-4">
+            <h1 className="text-4xl font-extrabold text-white">{event.name}</h1>
+            <div className="flex flex-wrap gap-4 text-sm">
+              <span className="bg-blue-600/20 text-blue-400 px-3 py-1 rounded-full border border-blue-500/30 flex items-center gap-2">
+                <Tag size={14} /> {event.category || 'General'}
+              </span>
+              <span className="text-gray-400 flex items-center gap-2">
+                <Clock size={16} /> {event.date ? new Date(event.date).toLocaleDateString() : 'TBA'}
+              </span>
             </div>
-          </aside>
+            <p className="text-gray-300 text-lg leading-relaxed max-w-3xl">
+              {event.description || 'No description provided for this event.'}
+            </p>
+          </div>
+          {(user?.role === 'ADMIN' || user?.role === 'PHOTOGRAPHER') && (
+            <button className="bg-blue-600 hover:bg-blue-700 px-6 py-3 rounded-xl flex items-center gap-2 font-bold shadow-lg shadow-blue-500/20 whitespace-nowrap">
+              <Plus size={20} /> Create Album
+            </button>
+          )}
+        </div>
+      </div>
+
+      <div className="space-y-6">
+        <h2 className="text-2xl font-bold flex items-center gap-2">
+          <Folder className="text-blue-500" /> Event Albums
+        </h2>
+        
+        <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-6">
+          {albums.length > 0 ? (
+            albums.map((album) => (
+              <Link 
+                key={album.id} 
+                to={`/albums/${album.id}`}
+                className="group bg-gray-900 border border-gray-800 p-6 rounded-xl hover:bg-gray-800 hover:border-blue-500 transition-all duration-300 flex flex-col items-center text-center gap-4 shadow-lg"
+              >
+                <div className="bg-blue-600/10 p-4 rounded-full group-hover:scale-110 transition-transform">
+                  <Folder size={40} className="text-blue-500" />
+                </div>
+                <div>
+                  <h4 className="font-bold text-lg group-hover:text-blue-400 transition-colors">{album.name}</h4>
+                  <p className="text-xs text-gray-500 mt-1 uppercase tracking-widest">{album.visibility}</p>
+                </div>
+              </Link>
+            ))
+          ) : (
+            <div className="col-span-full py-12 text-center bg-gray-800/30 rounded-xl border border-dashed border-gray-700">
+              <p className="text-gray-500">No albums created yet.</p>
+            </div>
+          )}
         </div>
       </div>
     </div>
