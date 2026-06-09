@@ -45,7 +45,6 @@ const AlbumGallery: React.FC = () => {
       for (let i = 0; i < files.length; i++) {
         const file = files[i];
         
-        // 1. Get Presigned URL
         const urlRes = await api.post('/media/upload-url', {
           fileName: file.name,
           contentType: file.type,
@@ -53,12 +52,10 @@ const AlbumGallery: React.FC = () => {
         });
         const { uploadUrl, key } = urlRes.data;
 
-        // 2. Upload to S3
-        await axios.put(uploadUrl, file, {
+        await axios.create().put(uploadUrl, file, {
           headers: { 'Content-Type': file.type }
         });
 
-        // 3. Register in Backend
         await api.post('/media/register', {
           albumId: id,
           s3Key: key,
@@ -76,11 +73,25 @@ const AlbumGallery: React.FC = () => {
 
   const handleDownload = async (media: Media) => {
     try {
-      // In a real app, this would use the downloadWithWatermark endpoint
-      // For now, we open in new tab or trigger direct download if possible
       window.open(`http://localhost:5000/api/download/watermark?key=${media.s3Key}`, '_blank');
     } catch (error) {
       console.error('Download error:', error);
+    }
+  };
+
+  const handleLike = async (mediaId: number) => {
+    try {
+      await api.post('/social/like', { mediaId });
+    } catch (error) {
+      console.error('Like error:', error);
+    }
+  };
+
+  const handleFavorite = async (mediaId: number) => {
+    try {
+      await api.post('/social/favorite', { mediaId });
+    } catch (error) {
+      console.error('Favorite error:', error);
     }
   };
 
@@ -123,6 +134,8 @@ const AlbumGallery: React.FC = () => {
             key={media.id} 
             media={media} 
             onDownload={() => handleDownload(media)}
+            onLike={() => handleLike(media.id)}
+            onFavorite={() => handleFavorite(media.id)}
           />
         ))}
         {mediaItems.length === 0 && (

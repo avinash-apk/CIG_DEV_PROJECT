@@ -31,10 +31,11 @@ export const registerMedia = async (req: AuthRequest, res: Response) => {
       type: type || 'PHOTO',
     }).returning();
 
-    const mediaId = newMedia[0].id;
+    const mediaRecord = newMedia[0];
+    if (!mediaRecord) return res.status(500).json({ message: 'Failed to insert media' });
+    const mediaId = mediaRecord.id;
 
     if (type === 'PHOTO' || !type) {
-      // 1. Detect Labels
       const labelsData = await detectLabels(process.env.S3_BUCKET_NAME!, s3Key);
       if (labelsData.Labels) {
         for (const label of labelsData.Labels) {
@@ -43,25 +44,25 @@ export const registerMedia = async (req: AuthRequest, res: Response) => {
             let tagId;
             if (tagRecord.length === 0) {
               const newTag = await db.insert(tags).values({ name: label.Name }).returning();
-              tagId = newTag[0].id;
+              if (newTag[0]) tagId = newTag[0].id;
             } else {
-              tagId = tagRecord[0].id;
+              tagId = tagRecord[0]?.id;
             }
-            await db.insert(mediaTags).values({ mediaId, tagId }).onConflictDoNothing();
+            if (tagId) {
+              await db.insert(mediaTags).values({ mediaId, tagId }).onConflictDoNothing();
+            }
           }
         }
       }
 
-      // 2. Index Faces for Facial Recognition
       try {
         await indexFace(process.env.S3_BUCKET_NAME!, s3Key, mediaId.toString());
       } catch (faceError) {
         console.error('Error indexing faces:', faceError);
-        // Don't fail the whole request if indexing fails
       }
     }
     
-    res.status(201).json(newMedia[0]);
+    res.status(201).json(mediaRecord);
   } catch (error) {
     res.status(500).json({ message: 'Error registering media' });
   }
@@ -70,7 +71,7 @@ export const registerMedia = async (req: AuthRequest, res: Response) => {
 export const getMediaByAlbum = async (req: AuthRequest, res: Response) => {
   try {
     const { albumId } = req.params;
-    const albumMedia = await db.select().from(media).where(eq(media.albumId, parseInt(albumId)));
+    const albumMedia = await db.select().from(media).where(eq(media.albumId, parseInt(albumId as string)));
     res.json(albumMedia);
   } catch (error) {
     res.status(500).json({ message: 'Error fetching media' });

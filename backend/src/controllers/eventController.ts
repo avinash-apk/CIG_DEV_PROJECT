@@ -30,7 +30,7 @@ export const getEvents = async (req: Request, res: Response) => {
 export const getEventById = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
-    const event = await db.select().from(events).where(eq(events.id, parseInt(id)));
+    const event = await db.select().from(events).where(eq(events.id, parseInt(id as string)));
     if (event.length === 0) return res.status(404).json({ message: 'Event not found' });
     res.json(event[0]);
   } catch (error) {
@@ -55,7 +55,7 @@ export const createAlbum = async (req: Request, res: Response) => {
 export const getAlbumsByEvent = async (req: Request, res: Response) => {
   try {
     const { eventId } = req.params;
-    const eventAlbums = await db.select().from(albums).where(eq(albums.eventId, parseInt(eventId)));
+    const eventAlbums = await db.select().from(albums).where(eq(albums.eventId, parseInt(eventId as string)));
     res.json(eventAlbums);
   } catch (error) {
     res.status(500).json({ message: 'Error fetching albums' });

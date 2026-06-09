@@ -22,8 +22,9 @@ export const likeMedia = async (req: AuthRequest, res: Response) => {
 
     // Handle notification
     const mediaRecord = await db.select().from(media).where(eq(media.id, mediaId));
-    if (mediaRecord.length > 0 && mediaRecord[0].uploaderId !== userId) {
-      const uploaderId = mediaRecord[0].uploaderId;
+    const firstMediaRec = mediaRecord[0];
+    if (firstMediaRec && firstMediaRec.uploaderId !== userId) {
+      const uploaderId = firstMediaRec.uploaderId;
       const [newNotification] = await db.insert(notifications).values({
         userId: uploaderId,
         actorId: userId,
@@ -53,8 +54,9 @@ export const addComment = async (req: AuthRequest, res: Response) => {
 
     // Handle notification
     const mediaRecord = await db.select().from(media).where(eq(media.id, mediaId));
-    if (mediaRecord.length > 0 && mediaRecord[0].uploaderId !== userId) {
-      const uploaderId = mediaRecord[0].uploaderId;
+    const firstMediaRec = mediaRecord[0];
+    if (firstMediaRec && firstMediaRec.uploaderId !== userId) {
+      const uploaderId = firstMediaRec.uploaderId;
       const [newNotification] = await db.insert(notifications).values({
         userId: uploaderId,
         actorId: userId,

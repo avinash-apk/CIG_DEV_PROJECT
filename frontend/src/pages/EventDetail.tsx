@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { Folder, ArrowLeft, Plus, Clock, Tag } from 'lucide-react';
+import { Folder, ArrowLeft, Plus, Clock, Tag, X } from 'lucide-react';
 import api from '../services/api';
 import { useAuth } from '../context/AuthContext';
 
@@ -23,32 +23,54 @@ const EventDetail: React.FC = () => {
   const [event, setEvent] = useState<Event | null>(null);
   const [albums, setAlbums] = useState<Album[]>([]);
   const [loading, setLoading] = useState(true);
+  const [showModal, setShowModal] = useState(false);
+  const [newAlbum, setNewAlbum] = useState({ name: '', visibility: 'PUBLIC' });
+  const [submitting, setSubmitting] = useState(false);
   const { user } = useAuth();
 
-  useEffect(() => {
-    const fetchEventData = async () => {
-      try {
-        const [eventRes, albumsRes] = await Promise.all([
-          api.get(`/events/${id}`),
-          api.get(`/events/${id}/albums`)
-        ]);
-        setEvent(eventRes.data);
-        setAlbums(albumsRes.data);
-      } catch (error) {
-        console.error('Error fetching event data:', error);
-      } finally {
-        setLoading(false);
-      }
-    };
+  const fetchEventData = async () => {
+    try {
+      const [eventRes, albumsRes] = await Promise.all([
+        api.get(`/events/${id}`),
+        api.get(`/events/${id}/albums`)
+      ]);
+      setEvent(eventRes.data);
+      setAlbums(albumsRes.data);
+    } catch (error) {
+      console.error('Error fetching event data:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
+  useEffect(() => {
     fetchEventData();
   }, [id]);
+
+  const handleCreateAlbum = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSubmitting(true);
+    try {
+      await api.post('/events/albums', {
+        ...newAlbum,
+        eventId: parseInt(id as string)
+      });
+      setShowModal(false);
+      setNewAlbum({ name: '', visibility: 'PUBLIC' });
+      fetchEventData();
+    } catch (error) {
+      console.error('Error creating album:', error);
+      alert('Failed to create album. Please try again.');
+    } finally {
+      setSubmitting(false);
+    }
+  };
 
   if (loading) return <div className="text-center py-20">Loading...</div>;
   if (!event) return <div className="text-center py-20 text-red-500">Event not found</div>;
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-8 relative">
       <Link to="/events" className="flex items-center gap-2 text-gray-400 hover:text-white transition-colors">
         <ArrowLeft size={20} /> Back to Events
       </Link>
@@ -69,13 +91,61 @@ const EventDetail: React.FC = () => {
               {event.description || 'No description provided for this event.'}
             </p>
           </div>
-          {(user?.role === 'ADMIN' || user?.role === 'PHOTOGRAPHER') && (
-            <button className="bg-blue-600 hover:bg-blue-700 px-6 py-3 rounded-xl flex items-center gap-2 font-bold shadow-lg shadow-blue-500/20 whitespace-nowrap">
+          {(user?.role === 'ADMIN' || user?.role === 'PHOTOGRAPHER' || user?.role === 'CLUB_MEMBER') && (
+            <button 
+              onClick={() => setShowModal(true)}
+              className="bg-blue-600 hover:bg-blue-700 px-6 py-3 rounded-xl flex items-center gap-2 font-bold shadow-lg shadow-blue-500/20 whitespace-nowrap"
+            >
               <Plus size={20} /> Create Album
             </button>
           )}
         </div>
       </div>
+
+      {showModal && (
+        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
+          <div className="bg-gray-900 border border-gray-800 p-8 rounded-2xl w-full max-w-md relative shadow-2xl">
+            <button 
+              onClick={() => setShowModal(false)}
+              className="absolute top-4 right-4 text-gray-500 hover:text-white"
+            >
+              <X size={24} />
+            </button>
+            <h2 className="text-2xl font-bold mb-6">Create New Album</h2>
+            <form onSubmit={handleCreateAlbum} className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-400 mb-1">Album Name</label>
+                <input
+                  type="text"
+                  required
+                  value={newAlbum.name}
+                  onChange={(e) => setNewAlbum({...newAlbum, name: e.target.value})}
+                  className="w-full bg-gray-800 border border-gray-700 rounded-lg py-2 px-4 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="e.g. Highlights, Ceremony"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-400 mb-1">Visibility</label>
+                <select
+                  value={newAlbum.visibility}
+                  onChange={(e) => setNewAlbum({...newAlbum, visibility: e.target.value})}
+                  className="w-full bg-gray-800 border border-gray-700 rounded-lg py-2 px-4 focus:outline-none focus:ring-2 focus:ring-blue-500 appearance-none"
+                >
+                  <option value="PUBLIC">Public</option>
+                  <option value="PRIVATE">Private</option>
+                </select>
+              </div>
+              <button
+                type="submit"
+                disabled={submitting}
+                className="w-full bg-blue-600 hover:bg-blue-700 py-3 rounded-lg font-bold text-white transition-colors mt-2"
+              >
+                {submitting ? 'Creating...' : 'Create Album'}
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
 
       <div className="space-y-6">
         <h2 className="text-2xl font-bold flex items-center gap-2">

@@ -18,8 +18,11 @@ export const signup = async (req: Request, res: Response) => {
       role: role || 'VIEWER',
     }).returning();
 
-    const token = jwt.sign({ id: newUser[0].id, role: newUser[0].role }, process.env.JWT_SECRET!, { expiresIn: '24h' });
-    res.status(201).json({ user: newUser[0], token });
+    const userRecord = newUser[0];
+    if (!userRecord) return res.status(500).json({ message: 'Failed to create user' });
+
+    const token = jwt.sign({ id: userRecord.id, role: userRecord.role }, process.env.JWT_SECRET!, { expiresIn: '24h' });
+    res.status(201).json({ user: userRecord, token });
   } catch (error) {
     res.status(500).json({ message: 'Error signing up' });
   }
@@ -31,11 +34,14 @@ export const login = async (req: Request, res: Response) => {
     const user = await db.select().from(users).where(eq(users.email, email));
     if (user.length === 0) return res.status(400).json({ message: 'Invalid credentials' });
 
-    const isMatch = await bcrypt.compare(password, user[0].passwordHash);
+    const userRecord = user[0];
+    if (!userRecord) return res.status(400).json({ message: 'Invalid credentials' });
+
+    const isMatch = await bcrypt.compare(password, userRecord.passwordHash);
     if (!isMatch) return res.status(400).json({ message: 'Invalid credentials' });
 
-    const token = jwt.sign({ id: user[0].id, role: user[0].role }, process.env.JWT_SECRET!, { expiresIn: '24h' });
-    res.json({ user: user[0], token });
+    const token = jwt.sign({ id: userRecord.id, role: userRecord.role }, process.env.JWT_SECRET!, { expiresIn: '24h' });
+    res.json({ user: userRecord, token });
   } catch (error) {
     res.status(500).json({ message: 'Error logging in' });
   }

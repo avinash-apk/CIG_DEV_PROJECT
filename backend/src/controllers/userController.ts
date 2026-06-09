@@ -32,11 +32,12 @@ export const registerSelfie = async (req: AuthRequest, res: Response) => {
 export const getMyPhotos = async (req: AuthRequest, res: Response) => {
   try {
     const user = await db.select().from(users).where(eq(users.id, req.user!.id));
-    if (!user[0].selfieS3Key) {
+    const userRecord = user[0];
+    if (!userRecord || !userRecord.selfieS3Key) {
       return res.status(400).json({ message: 'Please upload a selfie first' });
     }
 
-    const searchResults = await searchFaces(process.env.S3_BUCKET_NAME!, user[0].selfieS3Key);
+    const searchResults = await searchFaces(process.env.S3_BUCKET_NAME!, userRecord.selfieS3Key);
     
     if (!searchResults.FaceMatches || searchResults.FaceMatches.length === 0) {
       return res.json([]);

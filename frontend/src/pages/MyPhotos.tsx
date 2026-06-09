@@ -19,7 +19,6 @@ const MyPhotos: React.FC = () => {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    // Check if user has a selfie registered
     const user = JSON.parse(localStorage.getItem('user') || '{}');
     if (user.selfieS3Key) {
       setHasSelfie(true);
@@ -45,31 +44,35 @@ const MyPhotos: React.FC = () => {
 
     setUploading(true);
     try {
-      // 1. Get Presigned URL for selfie
       const urlRes = await api.post('/users/selfie-url', {
         fileName: file.name,
         contentType: file.type
+      }).catch(err => {
+        throw new Error(`Failed to get upload URL: ${err.response?.data?.message || err.message}`);
       });
+      
       const { uploadUrl, key } = urlRes.data;
 
-      // 2. Upload to S3
-      await axios.put(uploadUrl, file, {
+      // Use a clean axios instance without any global headers/interceptors
+      await axios.create().put(uploadUrl, file, {
         headers: { 'Content-Type': file.type }
+      }).catch(err => {
+        throw new Error(`S3 Upload failed: ${err.message}. Check CORS and Region settings.`);
       });
 
-      // 3. Register Selfie in Backend
-      await api.post('/users/register-selfie', { s3Key: key });
+      await api.post('/users/register-selfie', { s3Key: key }).catch(err => {
+        throw new Error(`Failed to register selfie in database: ${err.response?.data?.message || err.message}`);
+      });
       
-      // Update local user object
       const user = JSON.parse(localStorage.getItem('user') || '{}');
       user.selfieS3Key = key;
       localStorage.setItem('user', JSON.stringify(user));
 
       setHasSelfie(true);
       searchPhotos();
-    } catch (error) {
+    } catch (error: any) {
       console.error('Selfie upload failed:', error);
-      alert('Selfie upload failed. Please try again.');
+      alert(error.message || 'Selfie upload failed. Please try again.');
     } finally {
       setUploading(false);
     }
