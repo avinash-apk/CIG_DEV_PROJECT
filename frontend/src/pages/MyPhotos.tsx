@@ -1,98 +1,162 @@
-import React, { useState } from 'react';
-import { Camera, Upload, Sparkles, Search } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import { Camera, Search, User, Grid, RefreshCcw } from 'lucide-react';
+import api from '../services/api';
 import MediaCard from '../components/MediaCard';
+import axios from 'axios';
+
+interface Media {
+  id: number;
+  s3Url: string;
+  s3Key: string;
+  type: 'PHOTO' | 'VIDEO';
+}
 
 const MyPhotos: React.FC = () => {
-  const [isUploading, setIsUploading] = useState(false);
-  const [hasResults, setHasResults] = useState(false);
+  const [photos, setPhotos] = useState<Media[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [hasSelfie, setHasSelfie] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const handleSelfieUpload = () => {
-    setIsUploading(true);
-    // Mocking facial recognition search
-    setTimeout(() => {
-      setIsUploading(false);
-      setHasResults(true);
-    }, 2000);
+  useEffect(() => {
+    // Check if user has a selfie registered
+    const user = JSON.parse(localStorage.getItem('user') || '{}');
+    if (user.selfieS3Key) {
+      setHasSelfie(true);
+      searchPhotos();
+    }
+  }, []);
+
+  const searchPhotos = async () => {
+    setLoading(true);
+    try {
+      const response = await api.get('/users/my-photos');
+      setPhotos(response.data);
+    } catch (error) {
+      console.error('Error searching photos:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSelfieUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setUploading(true);
+    try {
+      // 1. Get Presigned URL for selfie
+      const urlRes = await api.post('/users/selfie-url', {
+        fileName: file.name,
+        contentType: file.type
+      });
+      const { uploadUrl, key } = urlRes.data;
+
+      // 2. Upload to S3
+      await axios.put(uploadUrl, file, {
+        headers: { 'Content-Type': file.type }
+      });
+
+      // 3. Register Selfie in Backend
+      await api.post('/users/register-selfie', { s3Key: key });
+      
+      // Update local user object
+      const user = JSON.parse(localStorage.getItem('user') || '{}');
+      user.selfieS3Key = key;
+      localStorage.setItem('user', JSON.stringify(user));
+
+      setHasSelfie(true);
+      searchPhotos();
+    } catch (error) {
+      console.error('Selfie upload failed:', error);
+      alert('Selfie upload failed. Please try again.');
+    } finally {
+      setUploading(false);
+    }
   };
 
   return (
-    <div className="min-h-screen bg-black text-white p-6">
-      <div className="max-w-7xl mx-auto">
-        <div className="mb-10">
-          <h1 className="text-4xl font-bold mb-2">My Photos</h1>
-          <p className="text-gray-400">Upload a selfie to find all photos of you across our events</p>
+    <div className="space-y-10">
+      <div className="text-center space-y-4">
+        <h1 className="text-4xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-indigo-500">
+          Find Your Photos
+        </h1>
+        <p className="text-gray-400 max-w-xl mx-auto">
+          Upload a clear selfie, and our AI will find every photo you appear in across all events.
+        </p>
+      </div>
+
+      <div className="flex justify-center">
+        <div className="bg-gray-800 p-8 rounded-3xl border border-gray-700 shadow-2xl flex flex-col items-center gap-6 max-w-md w-full">
+          <div className="w-32 h-32 bg-gray-900 rounded-full flex items-center justify-center border-4 border-blue-500/30 overflow-hidden">
+            {hasSelfie ? (
+              <User size={64} className="text-blue-500" />
+            ) : (
+              <Camera size={64} className="text-gray-700" />
+            )}
+          </div>
+          
+          <input 
+            type="file" 
+            className="hidden" 
+            ref={fileInputRef} 
+            onChange={handleSelfieUpload}
+            accept="image/*"
+          />
+          
+          <button 
+            onClick={() => fileInputRef.current?.click()}
+            disabled={uploading}
+            className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-blue-800 text-white font-bold py-3 rounded-xl flex items-center justify-center gap-2 transition-all"
+          >
+            {uploading ? (
+              <RefreshCcw className="animate-spin" size={20} />
+            ) : (
+              <Camera size={20} />
+            )}
+            {hasSelfie ? 'Update Reference Selfie' : 'Upload Selfie to Start'}
+          </button>
+        </div>
+      </div>
+
+      <div className="space-y-6">
+        <div className="flex items-center justify-between border-b border-gray-800 pb-4">
+          <h2 className="text-2xl font-bold flex items-center gap-2">
+            <Search className="text-blue-500" /> Results ({photos.length})
+          </h2>
+          {hasSelfie && (
+            <button 
+              onClick={searchPhotos}
+              className="text-sm text-blue-400 hover:text-blue-300 flex items-center gap-1"
+            >
+              <RefreshCcw size={14} /> Refresh Search
+            </button>
+          )}
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-10">
-          <div className="lg:col-span-1">
-            <div className="bg-gray-900 border border-gray-800 rounded-3xl p-8 sticky top-6">
-              <div className="aspect-square bg-gray-800 rounded-2xl border-2 border-dashed border-gray-700 flex flex-col items-center justify-center mb-6 relative overflow-hidden group">
-                <Camera size={48} className="text-gray-600 mb-4 group-hover:text-indigo-500 transition-colors" />
-                <p className="text-gray-400 text-center px-6">
-                  {isUploading ? 'Analyzing your features...' : 'Click or drag a clear selfie here'}
-                </p>
-                {isUploading && (
-                  <div className="absolute inset-0 bg-indigo-600/20 flex items-center justify-center">
-                    <div className="w-12 h-12 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin" />
-                  </div>
-                )}
-              </div>
-              
-              <button 
-                onClick={handleSelfieUpload}
-                disabled={isUploading}
-                className="w-full bg-indigo-600 hover:bg-indigo-700 disabled:bg-gray-800 text-white font-bold py-4 rounded-xl flex items-center justify-center gap-3 transition-all shadow-lg shadow-indigo-500/20"
-              >
-                <Upload size={20} />
-                <span>Upload Selfie</span>
-              </button>
-              
-              <div className="mt-8 space-y-4">
-                <h3 className="font-semibold text-gray-300 flex items-center gap-2">
-                  <Sparkles size={18} className="text-yellow-500" />
-                  How it works
-                </h3>
-                <p className="text-sm text-gray-500 leading-relaxed">
-                  Our AI uses facial recognition to scan through thousands of photos from all events you've attended to find your best moments.
-                </p>
-              </div>
-            </div>
+        {loading ? (
+          <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-4">
+            {[...Array(5)].map((_, i) => (
+              <div key={i} className="aspect-square bg-gray-800 animate-pulse rounded-xl"></div>
+            ))}
           </div>
-
-          <div className="lg:col-span-2">
-            {!hasResults ? (
-              <div className="h-[500px] flex flex-col items-center justify-center bg-gray-900/30 border border-gray-800 border-dashed rounded-3xl text-center px-10">
-                <div className="w-16 h-16 bg-gray-800 rounded-full flex items-center justify-center mb-6">
-                  <Search size={30} className="text-gray-500" />
-                </div>
-                <h2 className="text-xl font-bold mb-2">No photos found yet</h2>
-                <p className="text-gray-400 max-w-sm">
-                  Upload a selfie to start searching. Once we find matches, they'll appear here in a beautiful gallery.
-                </p>
+        ) : (
+          <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-4">
+            {photos.map((photo) => (
+              <MediaCard key={photo.id} media={photo} />
+            ))}
+            {hasSelfie && photos.length === 0 && (
+              <div className="col-span-full py-20 text-center bg-gray-800/30 rounded-2xl border-2 border-dashed border-gray-700">
+                <p className="text-gray-500">No photos found yet. We'll notify you when a match is found!</p>
               </div>
-            ) : (
-              <div className="space-y-6">
-                <div className="flex justify-between items-center">
-                  <h2 className="text-2xl font-bold">We found 8 photos of you!</h2>
-                  <select className="bg-gray-900 border border-gray-800 rounded-lg px-3 py-1.5 text-sm outline-none focus:ring-1 focus:ring-indigo-500">
-                    <option>Recent first</option>
-                    <option>Oldest first</option>
-                  </select>
-                </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-                  {Array.from({ length: 8 }).map((_, i) => (
-                    <MediaCard 
-                      key={i} 
-                      imageUrl={`https://picsum.photos/seed/${i + 500}/800/800`}
-                      likes={Math.floor(Math.random() * 20)}
-                      comments={Math.floor(Math.random() * 5)}
-                    />
-                  ))}
-                </div>
+            )}
+            {!hasSelfie && (
+              <div className="col-span-full py-20 text-center bg-gray-800/30 rounded-2xl border-2 border-dashed border-gray-700">
+                <p className="text-gray-500">Upload a selfie above to discover your photos.</p>
               </div>
             )}
           </div>
-        </div>
+        )}
       </div>
     </div>
   );
