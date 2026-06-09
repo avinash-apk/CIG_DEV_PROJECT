@@ -1,0 +1,47 @@
+import { Response } from 'express';
+import { db } from '../db';
+import { media, albums } from '../db/schema';
+import { eq } from 'drizzle-orm';
+import { getPresignedUploadUrl } from '../services/s3';
+import { AuthRequest } from '../middleware/auth';
+
+export const getUploadUrl = async (req: AuthRequest, res: Response) => {
+  try {
+    const { fileName, contentType, albumId } = req.body;
+    const key = `albums/${albumId}/${Date.now()}-${fileName}`;
+    const uploadUrl = await getPresignedUploadUrl(key, contentType);
+    res.json({ uploadUrl, key });
+  } catch (error) {
+    res.status(500).json({ message: 'Error generating upload URL' });
+  }
+};
+
+export const registerMedia = async (req: AuthRequest, res: Response) => {
+  try {
+    const { albumId, s3Key, type } = req.body;
+    const uploaderId = req.user!.id;
+    const s3Url = `https://${process.env.S3_BUCKET_NAME}.s3.${process.env.AWS_REGION}.amazonaws.com/${s3Key}`;
+    
+    const newMedia = await db.insert(media).values({
+      albumId,
+      uploaderId,
+      s3Url,
+      s3Key,
+      type: type || 'PHOTO',
+    }).returning();
+    
+    res.status(201).json(newMedia[0]);
+  } catch (error) {
+    res.status(500).json({ message: 'Error registering media' });
+  }
+};
+
+export const getMediaByAlbum = async (req: AuthRequest, res: Response) => {
+  try {
+    const { albumId } = req.params;
+    const albumMedia = await db.select().from(media).where(eq(media.albumId, parseInt(albumId)));
+    res.json(albumMedia);
+  } catch (error) {
+    res.status(500).json({ message: 'Error fetching media' });
+  }
+};
